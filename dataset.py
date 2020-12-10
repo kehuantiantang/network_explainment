@@ -23,7 +23,7 @@ class IMDB(Dataset):
     def __init__(self, **kwargs):
         self.context = self.get_context()
         self.y = self.get_y()
-        print('X, Y Shape', self.context.shape, len(self.y))
+        print('X, Y Shape', len(self.context), len(self.y))
 
     def get_context(self):
         raise NotImplementedError()
@@ -83,5 +83,49 @@ class IMDB_Raw(IMDB):
         return context
 
 
+
+class IMDB_Seq(IMDB_Raw):
+    def __init__(self, **kwargs):
+        self.max_seq_length = kwargs.pop('max_seq_length', 500)
+        super(IMDB_Seq, self).__init__(**kwargs)
+
+
+    def get_context(self):
+        if not os.path.isfile(self.vocab_search_path):
+            v = Vocab(path = self.vocab_search_path)
+        else:
+            print("Load vocabulary file from %s" %self.vocab_search_path)
+        mr = MakeReview(vocab_path = './train_vocab.txt', txt_path =
+        self.txt_path, is_train = self.is_train)
+        docs = mr.get_docs()
+        self.vocab_length = mr.vocab_length
+
+        t2v = Text2Vector('./train_vocab.txt', docs, save_path=None, embedding_dict = self.embedding_dict, vector_size = 300)
+        context, length = t2v.word2vector_seq()
+
+        print("Max, Mean, Median length %s, %s, %s"%(np.max(length), np.mean(length), np.median(length)))
+        return context
+
+    def __getitem__(self, index):
+        x = np.array(self.context[index])
+        # padding or clip if not so long, 300 is Glove embdding vector size
+        r = np.zeros((self.max_seq_length, 300), dtype=np.float32)
+        if len(x) > self.max_seq_length:
+            r = x[:self.max_seq_length]
+        else:
+            r[:len(x)] = x
+
+        y = self.y[index]
+
+        return r, y
+
+
+
+
 if __name__ == '__main__':
-    pass
+    embedding_dict = glove_vector()
+    a = IMDB_Seq(vocab_search_path= '/home/khtt/code/network_explainment/train_vocab.txt', txt_path= '/home/khtt/dataset/na_experiment/aclImdb/train',
+             is_train=True, embedding_dict = embedding_dict, max_length = 300)
+
+    for x, y in a:
+        print(x.shape, y)

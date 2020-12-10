@@ -1,24 +1,9 @@
 # coding=utf-8
-import argparse
-import pprint
-
-import time
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-from sklearn.metrics import accuracy_score, classification_report
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-import numpy as np
-from dataset import IMDB_PKL, IMDB_Raw, glove_vector
-from utils.gpu_utils import auto_select_gpu
-from utils.misc import AverageMeter, accuracy
 
-# gpu_id = auto_select_gpu(10000)
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = auto_select_gpu()
-torch.manual_seed(1)
 
 
 class NBOW(nn.Module):
@@ -38,131 +23,106 @@ class NBOW(nn.Module):
     def forward(self, inputs):
         return self.model(inputs)
 
-def build_model(args):
-    model = NBOW(args.max_features, args.embedding_dim)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
 
-    return model
+class NBOW_CONV(nn.Module):
+    '''convolutional text classification'''
+    def __init__(self, max_seq_length, embedding_dim, out_dim = 128, stride = 1):
+        super(NBOW_CONV, self).__init__()
 
+        # Parameters regarding text preprocessing
+        self.seq_len = max_seq_length
+        self.embedding_size = embedding_dim
 
-def build_dataset(args):
-    # train_dataset, val_dataset = IMDB_PKL(args.train_path), IMDB_PKL(args.test_path)
-    # train_loader, val_loader = DataLoader(train_dataset, args.batch_size, shuffle= True, num_workers =
-    # args.num_workers), DataLoader(val_dataset, args.batch_size, shuffle= False, num_workers =
-    # args.num_workers)
+        # Dropout definition
+        # self.dropout = nn.Dropout(0.25)
 
-    embedding_dict = glove_vector()
-    train_dataset, val_dataset = IMDB_Raw(vocab_search_path= args.root_path, txt_path= args.train_path,
-                                          is_train=True, embedding_dict = embedding_dict), \
-                                 IMDB_Raw(vocab_search_path= args.root_path, txt_path= args.test_path, is_train =
-                                 False, embedding_dict = embedding_dict)
-    train_loader, val_loader = DataLoader(train_dataset, args.batch_size, shuffle= True, num_workers =
-    args.num_workers), DataLoader(val_dataset, args.batch_size, shuffle= False, num_workers =
-    args.num_workers)
+        # CNN parameters definition
+        # Kernel sizes
+        self.kernel_1 = 1
+        self.kernel_2 = 2
+        self.kernel_3 = 3
 
-    args.max_features = train_dataset.vocab_length
-    return train_loader, val_loader
+        # Output size for each convolution
+        self.out_dim = out_dim
+        # Number of strides for each convolution
+        self.stride = stride
 
+        # Embedding layer definition
 
-def eval(model, dataloader, loss_fun, args):
-    model.eval()
+        # Convolution layers definition
+        self.conv_1 = nn.Conv1d(self.seq_len, self.out_dim, self.kernel_1, self.stride)
+        self.conv_2 = nn.Conv1d(self.seq_len, self.out_dim, self.kernel_2, self.stride)
+        self.conv_3 = nn.Conv1d(self.seq_len, self.out_dim, self.kernel_3, self.stride)
 
-    losses = AverageMeter()
-    top1 = AverageMeter()
+        # Max pooling layers definition
+        self.pool_1 = nn.MaxPool1d(self.kernel_1, self.stride)
+        self.pool_2 = nn.MaxPool1d(self.kernel_2, self.stride)
+        self.pool_3 = nn.MaxPool1d(self.kernel_3, self.stride)
 
-
-    sum_targets, sum_outputs, sum_outputs_score = [], [], []
-
-
-    dtqdm = tqdm(enumerate(dataloader), total = len(dataloader))
-    for batch_index, (x, y) in dtqdm:
-        # x, y = x.float().cuda(), y.view(-1, 1).float().cuda()
-        x, y = x.float().cuda(), y.long().cuda()
-
-        output = model(x)
-        loss = loss_fun(output, y)
-
-        prec1 = accuracy(output.data, y.data, nb_classes = args.nb_classes)[0]
-        top1.update(prec1.data.cpu().numpy(), x.size(0))
-        losses.update(loss.data.cpu().numpy(), x.size(0))
-
-
-        sum_targets.extend(y.data.cpu().numpy().flatten())
-
-        if args.nb_classes == 1:
-            output =  output.squeeze(dim=-1)
-            sum_outputs.extend((output.data.cpu().numpy() > 0.5).astype(np.float32))
-
-        else:
-            sum_outputs.extend(np.argmax(output.data.cpu().numpy(), -1).flatten())
-
-        sum_outputs_score.extend(F.softmax(output.data, dim = -1).cpu().numpy()[:, 0])
-
-
-    print(classification_report(sum_targets, sum_outputs))
-    # print(accuracy_score(sum_targets, sum_outputs_score))
-
-
-def train(model, trainloader, valloader, optimizer, loss_fun, args):
-    model.train()
-
-    losses = AverageMeter()
-    top1 = AverageMeter()
-
-    for epoch in range(args.epochs):
-        dtqdm = tqdm(enumerate(trainloader), total = len(trainloader))
-        for batch_index, (x, y) in dtqdm:
-            x, y = x.float().cuda(), y.long().cuda()
-            output = model(x)
-            loss = loss_fun(output, y)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            prec1 = accuracy(output.data, y.data, nb_classes = args.nb_classes)[0]
-            losses.update(loss.data.cpu().numpy(), x.size(0))
-            top1.update(prec1.data.cpu().numpy(), x.size(0))
-
-
-            info = 'Epoch:{epoch} Loss:{loss:.8f}, Acc:{top1:.4f}'.format(epoch = epoch, loss=losses.avg,
-                                                                            top1=top1.avg)
-            dtqdm.set_description(info)
-
-        if epoch % args.interval_val == 0:
-            eval(model, valloader, loss_fun, args)
+        # Fully connected layer definition
+        self.fc = nn.Linear(self.in_features_fc(), 2)
 
 
 
-parser = argparse.ArgumentParser(description='PyTorch detection')
-parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs to run')
-parser.add_argument('--batch-size', default=1800, type=int)
-parser.add_argument('--nb_classes', default=2, type=int)
+    def in_features_fc(self):
+        '''Calculates the number of output features after Convolution + Max pooling
 
-parser.add_argument('--interval-val', default=5, type=int)
+        Convolved_Features = ((embedding_size + (2 * padding) - dilation * (kernel - 1) - 1) / stride) + 1
+        Pooled_Features = ((embedding_size + (2 * padding) - dilation * (kernel - 1) - 1) / stride) + 1
 
-# dataset
-parser.add_argument('--root-path', default='/home/khtt/dataset/na_experiment/aclImdb/train', type=str)
-# parser.add_argument('--root-path', default='/home/khtt/code/network_explainment/train_vocab.txt', type=str)
-parser.add_argument('--train-path', default='/home/khtt/dataset/na_experiment/aclImdb/train', type=str)
-parser.add_argument('--test-path', default='/home/khtt/dataset/na_experiment/aclImdb/test', type=str)
+        source: https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
+        '''
+        # Calcualte size of convolved/pooled features for convolution_1/max_pooling_1 features
+        out_conv_1 = ((self.embedding_size - 1 * (self.kernel_1 - 1) - 1) / self.stride) + 1
+        out_conv_1 = math.floor(out_conv_1)
+        out_pool_1 = ((out_conv_1 - 1 * (self.kernel_1 - 1) - 1) / self.stride) + 1
+        out_pool_1 = math.floor(out_pool_1)
 
-# model config
-parser.add_argument('--max-features', default=54889, type=int, help = 'vocabulary length')
-parser.add_argument('--embedding-dim', default=1, type=int, help = 'word2vector vector size')
+        # Calcualte size of convolved/pooled features for convolution_2/max_pooling_2 features
+        out_conv_2 = ((self.embedding_size - 1 * (self.kernel_2 - 1) - 1) / self.stride) + 1
+        out_conv_2 = math.floor(out_conv_2)
+        out_pool_2 = ((out_conv_2 - 1 * (self.kernel_2 - 1) - 1) / self.stride) + 1
+        out_pool_2 = math.floor(out_pool_2)
+
+        # Calcualte size of convolved/pooled features for convolution_3/max_pooling_3 features
+        out_conv_3 = ((self.embedding_size - 1 * (self.kernel_3 - 1) - 1) / self.stride) + 1
+        out_conv_3 = math.floor(out_conv_3)
+        out_pool_3 = ((out_conv_3 - 1 * (self.kernel_3 - 1) - 1) / self.stride) + 1
+        out_pool_3 = math.floor(out_pool_3)
+
+        # Returns "flattened" vector (input for fully connected layer)
+        return (out_pool_1 + out_pool_2 + out_pool_3) * self.out_dim
+
+    def forward(self, inputs):
+
+        # Convolution layer 1 is applied
+        x1 = self.conv_1(inputs)
+        x1 = F.relu(x1)
+        x1 = self.pool_1(x1)
+
+        # Convolution layer 2 is applied
+        x2 = self.conv_2(inputs)
+        x2 = F.relu(x2)
+        x2 = self.pool_2(x2)
+
+        # Convolution layer 3 is applied
+        x3 = self.conv_3(inputs)
+        x3 = F.relu(x3)
+        x3 = self.pool_3(x3)
 
 
-parser.add_argument('--num-workers', default=5, type=int)
+        # The output of each convolutional layer is concatenated into a unique vector
+        union = torch.cat((x1, x2, x3), 2)
+        union = union.reshape(union.size(0), -1)
 
-args = parser.parse_args()
-pp = pprint.PrettyPrinter(indent=4)
-pp.pprint(vars(args))
+        # The "flattened" vector is passed through a fully connected layer
+        out = self.fc(union)
 
-trainloader, valloader = build_dataset(args)
-model = build_model(args)
-# loss_function = torch.nn.MSELoss()
-loss_function = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.2)
+        return out
 
-train(model, trainloader, valloader, optimizer, loss_function, args)
+
+if __name__ == '__main__':
+    a = NBOW_CONV(max_seq_length= 300, embedding_dim = 300)
+    input = torch.rand(10, 300, 300)
+    output = a(input)
+    print(output.size())

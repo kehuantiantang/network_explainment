@@ -9,6 +9,7 @@ from nltk.corpus import stopwords
 import string
 from collections import Counter
 import os.path as osp
+from nltk.stem.porter import PorterStemmer
 # load doc into memory
 from scipy import spatial
 from tqdm import tqdm
@@ -205,9 +206,10 @@ class MakeReview(object):
 
 class Text2Vector(object):
     def __init__(self, vocal_path, docs, save_path, embedding_dict, vector_size = 1):
+        self.embedding_dict = embedding_dict
+        self.unique_text_dict = list(self.embedding_dict.keys())
         self.text_dict = self.load_doc_dict(vocal_path)
         self.docs = docs
-        self.embedding_dict = embedding_dict
 
         self.save_path = save_path
         self.vector_size = vector_size
@@ -230,31 +232,40 @@ class Text2Vector(object):
         return sorted(embedding.keys(), key=lambda word: spatial.distance.euclidean(self.embedding_dict[word],
                                                                                     embedding))
 
-    def find_closest_word(self, doc, min_score = 60):
-        unique_band = list(self.text_dict.keys())
+    def find_closest_word(self, doc, **kwargs):
 
         words = []
         for d in doc.split(" "):
-            closed_word, score = process.extract(d, unique_band, scorer=fuzz.token_sort_ratio)[0]
-            if score > min_score:
-                words.append(score)
+            # closed_word, score = process.extractBests(d, self.unique_text_dict)[0]
+            # if score > min_score:
+            #     words.append(score)
+            sd = kwargs.get('proter_stemmer').stem(d)
+
+            if d in self.embedding_dict.keys():
+                words.append(d)
+            elif sd in self.embedding_dict.keys():
+                words.append(sd)
+
         return words
 
     def word2vector_seq(self):
-        doc_lengths, doc  = [], []
+        proter_stemmer =  PorterStemmer()
+        doc_lengths, vectors  = [], []
         for doc_index, doc in tqdm(enumerate(self.docs), total=len(self.docs)):
+            doc = self.find_closest_word(doc, proter_stemmer = proter_stemmer)
+            # save doc length
+            doc_lengths.append(len(doc))
 
-            doc = self.find_closest_word(doc)
+            vector = []
             for d in doc:
-                index = self.text_dict[d]
                 value  = self.embedding_dict[d][:self.vector_size]
-
-
+                vector.append(value)
+            vectors.append(vector)
 
         if self.save_path:
             os.makedirs(osp.split(self.save_path)[0], exist_ok=True)
-            self.save(vector, self.save_path)
-        return vector
+            self.save(vectors, self.save_path)
+        return vectors, doc_lengths
 
     def word2vector(self):
         vector = np.zeros((len(self.docs), len(self.text_dict.keys())), dtype = np.float32)

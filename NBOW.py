@@ -61,6 +61,7 @@ class NBOW_CONV(nn.Module):
 
         # Fully connected layer definition
         self.fc = nn.Linear(self.in_features_fc(), 2)
+        # self.fc = nn.Sequential(nn.Linear(self.in_features_fc(), 50, bias=True), nn.Sigmoid(), nn.Linear(50, 2, bias=True))
 
 
 
@@ -122,7 +123,7 @@ class NBOW_CONV(nn.Module):
 
 
 if __name__ == '__main__':
-    a = NBOW_CONV(max_seq_length= 300, embedding_dim = 300)
-    input = torch.rand(10, 300, 300)
+    a = NBOW_CONV(max_seq_length= 100, embedding_dim = 300)
+    input = torch.rand(10, 100, 300)
     output = a(input)
     print(output.size())

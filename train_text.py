@@ -13,6 +13,7 @@ from NBOW import NBOW, NBOW_CONV
 from dataset import IMDB_PKL, IMDB_Raw, glove_vector, IMDB_Seq
 from utils.gpu_utils import auto_select_gpu
 from utils.misc import AverageMeter, accuracy
+import os.path as osp
 
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = auto_select_gpu()
@@ -43,15 +44,21 @@ def build_dataset(args):
 
 
     # conv
-    embedding_dict = glove_vector()
+    if not osp.exists('./vector/train_seq_context.pkl'):
+        embedding_dict = glove_vector()
+    else:
+        embedding_dict = {}
     train_dataset, val_dataset = IMDB_Seq(vocab_search_path=args.root_path, txt_path=args.train_path, is_train=True,
-                                          embedding_dict=embedding_dict, max_seq_length=args.max_seq_length), IMDB_Seq(
+                                          embedding_dict=embedding_dict, max_seq_length=args.max_seq_length,
+                                          embedding_dim = args.embedding_dim, vector_save_path =
+                                          './vector/train_seq.pkl'), IMDB_Seq(
         vocab_search_path=args.root_path, txt_path=args.test_path, is_train=False, embedding_dict=embedding_dict,
-        max_seq_length=args.max_seq_length)
+        max_seq_length=args.max_seq_length, embedding_dim = args.embedding_dim, vector_save_path =
+        './vector/test_seq.pkl')
 
     train_loader, val_loader = DataLoader(train_dataset, args.batch_size, shuffle= True, num_workers =
     args.num_workers), DataLoader(val_dataset, args.batch_size, shuffle= False, num_workers =
-    args.num_workers, )
+    args.num_workers)
 
     return train_loader, val_loader
 
@@ -91,7 +98,14 @@ def eval(model, dataloader, loss_fun, args):
 
 
     print(classification_report(sum_targets, sum_outputs))
-    # print(accuracy_score(sum_targets, sum_outputs_score))
+
+    b = np.array(sum_outputs_score)
+    b[b >= 0.5] = 1
+    b[b < 0.5] = 0
+    acc = accuracy_score(sum_targets, b)
+    print(1 - acc)
+
+    return 1 - acc
 
 
 def train(model, trainloader, valloader, optimizer, loss_fun, args):
@@ -99,6 +113,7 @@ def train(model, trainloader, valloader, optimizer, loss_fun, args):
 
     losses = AverageMeter()
     top1 = AverageMeter()
+    test_top_acc = -1
 
     for epoch in range(args.epochs):
         dtqdm = tqdm(enumerate(trainloader), total = len(trainloader))
@@ -121,16 +136,21 @@ def train(model, trainloader, valloader, optimizer, loss_fun, args):
             dtqdm.set_description(info)
 
         if epoch % args.interval_val == 0:
-            eval(model, valloader, loss_fun, args)
+            current_accuracy = eval(model, valloader, loss_fun, args)
+            if current_accuracy > test_top_acc:
+                current_accuracy = test_top_acc
+                torch.save({'model':model, 'best_accuracy': test_top_acc}, osp.join(args.checkpoint_path,
+                                                                                    'best_seq.pt'))
 
 
 
 parser = argparse.ArgumentParser(description='PyTorch detection')
-parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs to run')
-parser.add_argument('--batch-size', default=1000, type=int)
+parser.add_argument('--epochs', default=500, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('--batch-size', default=100, type=int)
 parser.add_argument('--nb_classes', default=2, type=int)
 
 parser.add_argument('--interval-val', default=5, type=int)
+parser.add_argument('--checkpoint-path', default="./vector", type=str, help = 'word2vector vector size')
 
 # dataset
 # parser.add_argument('--root-path', default='/home/khtt/dataset/na_experiment/aclImdb/train', type=str)
@@ -139,11 +159,11 @@ parser.add_argument('--train-path', default='/home/khtt/dataset/na_experiment/ac
 parser.add_argument('--test-path', default='/home/khtt/dataset/na_experiment/aclImdb/test', type=str)
 
 # model config
-parser.add_argument('--max-seq-length', default=300, type=int, help = 'vocabulary or sequence length')
+parser.add_argument('--max-seq-length', default=120, type=int, help = 'vocabulary or sequence length')
 parser.add_argument('--embedding-dim', default=300, type=int, help = 'word2vector vector size')
 
 
-parser.add_argument('--num-workers', default=5, type=int)
+parser.add_argument('--num-workers', default=0, type=int)
 
 args = parser.parse_args()
 pp = pprint.PrettyPrinter(indent=4)
@@ -153,6 +173,6 @@ trainloader, valloader = build_dataset(args)
 model = build_model(args)
 # loss_function = torch.nn.MSELoss()
 loss_function = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.2)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
 train(model, trainloader, valloader, optimizer, loss_function, args)

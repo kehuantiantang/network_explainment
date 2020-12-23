@@ -1,12 +1,17 @@
 # coding=utf-8
 
 import argparse
+import pprint
+
 import cv2
 import numpy as np
 import torch
+from PIL import Image
 from torch.autograd import Function
-from torchvision import models
+from torchvision import models, transforms
+import torch.nn as nn
 
+device = torch.device("cuda")
 class FeatureExtractor():
     """ Class for extracting activations and
     registering gradients from targetted intermediate layers """
@@ -56,22 +61,6 @@ class ModelOutputs():
                 x = module(x)
 
         return target_activations, x
-
-
-def preprocess_image(img):
-    means = [0.485, 0.456, 0.406]
-    stds = [0.229, 0.224, 0.225]
-
-    preprocessed_img = img.copy()[:, :, ::-1]
-    for i in range(3):
-        preprocessed_img[:, :, i] = preprocessed_img[:, :, i] - means[i]
-        preprocessed_img[:, :, i] = preprocessed_img[:, :, i] / stds[i]
-    preprocessed_img = \
-        np.ascontiguousarray(np.transpose(preprocessed_img, (2, 0, 1)))
-    preprocessed_img = torch.from_numpy(preprocessed_img)
-    preprocessed_img.unsqueeze_(0)
-    input = preprocessed_img.requires_grad_(True)
-    return input
 
 
 def show_cam_on_image(img, mask):
@@ -220,6 +209,23 @@ def get_args():
 
     return args
 
+def read_process_input(img_path):
+    mean=[0.457342265910642, 0.4387686270106377, 0.4073427106250871]
+    std=[0.26753769276329037, 0.2638145880487105, 0.2776826934044154]
+    train_trans = transforms.Compose([transforms.Resize(330),
+                                transforms.CenterCrop(300),
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean = mean, std = std),
+                                ])
+    val_trans = transforms.Compose([transforms.Resize(330),
+                                      transforms.CenterCrop(300)])
+
+    img = Image.open(img_path).convert('RGB')
+    img_array = np.array(val_trans(img))
+    X = torch.unsqueeze(train_trans(img), 0).to(device).requires_grad_(True)
+
+    return img_array, X
+
 def deprocess_image(img):
     """ see https://github.com/jacobgil/keras-grad-cam/blob/master/grad-cam.py#L65 """
     img = img - np.mean(img)
@@ -230,41 +236,58 @@ def deprocess_image(img):
     return np.uint8(img*255)
 
 
+def get_model(model_path):
+    model = models.vgg16(pretrained=True)
+    classifier = nn.Sequential(
+        nn.Linear(512 * 7 * 7, 4096),
+        nn.ReLU(True),
+        nn.Dropout(),
+        nn.Linear(4096, 4096),
+        nn.ReLU(True),
+        nn.Dropout(),
+        nn.Linear(4096, 20),
+    )
+    model.classifier = classifier
+    model.load_state_dict(torch.load(model_path))
+    model.to(device)
+    return model
+
 if __name__ == '__main__':
-    """ python grad_cam.py <path_to_image>
-    1. Loads an image with opencv.
-    2. Preprocesses it for VGG19 and converts to a pytorch variable.
-    3. Makes a forward pass to find the category index with the highest score,
-    and computes intermediate activations.
-    Makes the visualization. """
+    parser = argparse.ArgumentParser(description='PyTorch CAM')
+    parser.add_argument('--image_path', default='/home/khtt/code/LCFCN/datasets/download/pascal/VOCdevkit/VOC2007/JPEGImages/006223.jpg', type=str)
+    parser.add_argument('--use_cuda', default=True, type = bool)
+    parser.add_argument('--target_index', default=None, type=int)
+    parser.add_argument('--model_path', default='/home/khtt/code/network_explainment/vector/img/vgg16/model-1.pth', type=str)
 
-    args = get_args()
+    args = parser.parse_args()
+    pp = pprint.PrettyPrinter(indent=4)
+    pp.pprint(vars(args))
 
-    # Can work with any model, but it assumes that the model has a
-    # feature method, and a classifier method,
-    # as in the VGG models in torchvision.
-    model = models.resnet50(pretrained=True)
-    grad_cam = GradCam(model=model, feature_module=model.layer4, \
+
+    model = get_model(args.model_path)
+
+
+    grad_cam = GradCam(model=model, feature_module=model.features, \
                        target_layer_names=["2"], use_cuda=args.use_cuda)
 
-    img = cv2.imread(args.image_path, 1)
-    img = np.float32(cv2.resize(img, (224, 224))) / 255
-    input = preprocess_image(img)
+
+    img, input = read_process_input(args.image_path)
 
     # If None, returns the map for the highest scoring category.
     # Otherwise, targets the requested index.
     target_index = None
-    mask = grad_cam(input, target_index)
+    mask = grad_cam(input, args.target_index)
 
     show_cam_on_image(img, mask)
 
     gb_model = GuidedBackpropReLUModel(model=model, use_cuda=args.use_cuda)
     print(model._modules.items())
-    gb = gb_model(input, index=target_index)
+    gb = gb_model(input, index=args.target_index)
     gb = gb.transpose((1, 2, 0))
     cam_mask = cv2.merge([mask, mask, mask])
     cam_gb = deprocess_image(cam_mask*gb)
     gb = deprocess_image(gb)
+
 
     cv2.imwrite('gb.jpg', gb)
     cv2.imwrite('cam_gb.jpg', cam_gb)

@@ -144,7 +144,7 @@ def train(model, trainloader, valloader, optimizer, loss_fun, args):
 
 
 
-parser = argparse.ArgumentParser(description='PyTorch detection')
+parser = argparse.ArgumentParser(description='PyTorch text classification')
 parser.add_argument('--epochs', default=500, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('--batch-size', default=100, type=int)
 parser.add_argument('--nb_classes', default=2, type=int)

@@ -224,6 +224,7 @@ def img_lrp(img_path, model_path, target_index, nb_classes = 20):
             R[l] = R[l+1]
 
     for i,l in enumerate([31,21,11,1]):
+        print(i, l)
         heatmap(np.array(R[l][0]).sum(axis=0),0.5*i+1.5,0.5*i+1.5)
 
     A[0] = (A[0].data).requires_grad_(True)

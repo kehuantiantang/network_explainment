@@ -3,8 +3,7 @@
 import torch
 import numpy as np
 
-from .inverter_util import RelevancePropagator
-from .utils import pprint, Flatten
+from .inverter_util import RelevancePropagator, pprint
 
 
 class InnvestigateModel(torch.nn.Module):

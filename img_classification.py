@@ -1,14 +1,14 @@
 # coding=utf-8
 from torch.utils import model_zoo
 from torch.utils.data import DataLoader
-from torchvision.models import resnet18, resnet34, resnet50
+from torchvision.models import resnet18, resnet34, resnet50, vgg16
 from torchvision.transforms import transforms
 from tqdm import tqdm
 import torch
 import gc
 import random
 import numpy as np
-
+import torch.nn as nn
 import utils.img_utils as utils
 from dataset import PascalVOC_Dataset
 import os
@@ -133,6 +133,7 @@ def train_model(model, device, optimizer, scheduler, train_loader, valid_loader,
                     if val_map_ >= best_val_map:
                         best_val_map = val_map_
                         log_file.write("saving best weights...\n")
+                        print("saving best weights...\n", val_map_)
                         torch.save(model.state_dict(), os.path.join(save_dir,"model-{}.pth".format(model_num)))
 
     return ([tr_loss, tr_map], [val_loss, val_map])
@@ -231,12 +232,14 @@ def main(data_dir, model_name, num, lr, epochs, batch_size = 16, download_data =
         'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
         'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
         'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
+        'vgg16': 'https://download.pytorch.org/models/vgg16-397923af.pth',
     }
 
     model_collections_dict = {
         "resnet18": resnet18(),
         "resnet34": resnet34(),
-        "resnet50": resnet50()
+        "resnet50": resnet50(),
+        "vgg16": vgg16(),
     }
 
     # Initialize cuda parameters
@@ -248,10 +251,24 @@ def main(data_dir, model_name, num, lr, epochs, batch_size = 16, download_data =
 
     print("Available device = ", device)
     model = model_collections_dict[model_name]
-    model.avgpool = torch.nn.AdaptiveAvgPool2d(1)
     model.load_state_dict(model_zoo.load_url(model_urls[model_name]))
-    num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, 20)
+    # model.avgpool = torch.nn.MaxPool2d((9, 9))
+    classifier = nn.Sequential(
+        nn.Linear(512 * 7 * 7, 4096),
+        nn.ReLU(True),
+        nn.Dropout(),
+        nn.Linear(4096, 4096),
+        nn.ReLU(True),
+        nn.Dropout(),
+        nn.Linear(4096, 20),
+    )
+    model.classifier = classifier
+
+    # model.avgpool = torch.nn.AdaptiveAvgPool2d(1)
+    #
+    #
+    # num_ftrs = model.fc.in_features
+    # model.fc = torch.nn.Linear(num_ftrs, 20)
     model.to(device)
 
     optimizer = torch.optim.SGD([
@@ -369,6 +386,6 @@ def main(data_dir, model_name, num, lr, epochs, batch_size = 16, download_data =
 
 
 if __name__ == '__main__':
-   main('/home/khtt/dataset/na_experiment', "resnet18", num=1, lr = [1.5e-4, 5e-2], epochs = 100, batch_size=16,
+   main('/home/khtt/dataset/na_experiment', "vgg16", num=1, lr = [1.5e-4, 5e-2], epochs = 50, batch_size=16,
         download_data=False,
         save_results=True)

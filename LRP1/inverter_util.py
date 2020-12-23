@@ -3,8 +3,17 @@
 import torch
 import numpy as np
 import torch.nn.functional as F
-from .utils import pprint, Flatten
 
+class Flatten(torch.nn.Module):
+    def __init__(self):
+        super(Flatten, self).__init__()
+
+    def forward(self, in_tensor):
+        return in_tensor.view((in_tensor.size()[0], -1))
+
+def pprint(*args):
+    out = [str(argument) + "\n" for argument in args]
+    print(*out, "\n")
 
 def module_tracker(fwd_hook_func):
     """

@@ -209,7 +209,7 @@ def get_args():
 
     return args
 
-def read_process_input(img_path):
+def read_process_image_input(img_path):
     mean=[0.457342265910642, 0.4387686270106377, 0.4073427106250871]
     std=[0.26753769276329037, 0.2638145880487105, 0.2776826934044154]
     train_trans = transforms.Compose([transforms.Resize(330),
@@ -271,7 +271,7 @@ if __name__ == '__main__':
                        target_layer_names=["2"], use_cuda=args.use_cuda)
 
 
-    img, input = read_process_input(args.image_path)
+    img, input = read_process_image_input(args.image_path)
 
     # If None, returns the map for the highest scoring category.
     # Otherwise, targets the requested index.

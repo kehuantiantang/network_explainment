@@ -3,9 +3,11 @@
 import numpy as np
 import sklearn.metrics
 from lime.lime_text import LimeTextExplainer
+from sklearn.ensemble import ExtraTreesClassifier, AdaBoostClassifier, RandomForestClassifier
 from sklearn.metrics import accuracy_score
+from sklearn.tree import DecisionTreeClassifier
 
-from utils.utils import load_pkl
+from utils.text_utils import load_pkl
 
 class_names = ['pos', 'neg']
 
@@ -17,7 +19,9 @@ vectorizer = sklearn.feature_extraction.text.TfidfVectorizer(lowercase=False)
 train_vectors = vectorizer.fit_transform(train_x)
 test_vectors = vectorizer.transform(test_x)
 
-rf = sklearn.ensemble.RandomForestClassifier(n_estimators=500)
+# rf = sklearn.ensemble.RandomForestClassifier(n_estimators=500)
+rf =  AdaBoostClassifier(RandomForestClassifier(n_estimators=500),
+                         n_estimators=500)
 rf.fit(train_vectors, train_y)
 
 
@@ -33,7 +37,6 @@ print('Acc, F1', acc, a)
 from sklearn.pipeline import make_pipeline
 c = make_pipeline(vectorizer, rf)
 
-# print(c.predict_proba([test_x[80]]))
 
 
 explainer = LimeTextExplainer(class_names=class_names)
@@ -61,4 +64,4 @@ print('Difference:', rf.predict_proba(tmp)[0,1] - rf.predict_proba(test_vectors[
 fig = exp.as_pyplot_figure()
 fig.savefig('figure.jpg')
 
-exp.save_to_file('oi.html')
+exp.save_to_file('AdaBoostClassifier.html')

@@ -12,10 +12,14 @@ import os.path as osp
 from nltk.stem.porter import PorterStemmer
 # load doc into memory
 from scipy import spatial
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 from fuzzywuzzy import process, fuzz
 import pickle
+
+from dataset import glove_vector, IMDB_Seq
+
 
 def save_pkl(fname, data):
     with open(fname, "wb") as f:
@@ -293,6 +297,22 @@ class Text2Vector(object):
         save_pkl(path, vector)
 
 
+def read_process_text_input(args):
+    if not osp.exists('./vector/train_seq_context.pkl'):
+        embedding_dict = glove_vector()
+    else:
+        embedding_dict = {}
+    val_dataset = IMDB_Seq(
+        vocab_search_path=args.root_path, txt_path=args.test_path, is_train=False, embedding_dict=embedding_dict,
+        max_seq_length=args.max_seq_length, embedding_dim = args.embedding_dim, vector_save_path =
+        './vector/test_seq.pkl', return_raw_text = True)
+
+    val_loader = DataLoader(val_dataset, args.batch_size, shuffle= False, num_workers =
+    1)
+
+    for i, (x, y, text) in enumerate(val_loader):
+        if i == args.target_docs:
+            return x, y, text
 
 if __name__ == '__main__':
     from keras.preprocessing.text import Tokenizer

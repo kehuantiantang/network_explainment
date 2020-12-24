@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import xmltodict
+import torch.nn as nn
 from PIL import Image
 from lime import lime_image
 from skimage.segmentation import mark_boundaries
@@ -32,16 +33,15 @@ def load_json(xml_path):
 
 # resize and take the center part of image to what our model expects
 def get_input_transform():
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-    transf = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize
-    ])
+    mean=[0.457342265910642, 0.4387686270106377, 0.4073427106250871]
+    std=[0.26753769276329037, 0.2638145880487105, 0.2776826934044154]
+    trans = transforms.Compose([transforms.Resize(330),
+                                transforms.CenterCrop(300),
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean = mean, std = std),
+                                ])
 
-    return transf
+    return trans
 
 
 def get_input_tensors(img):
@@ -52,12 +52,10 @@ def get_input_tensors(img):
 
 # to take PIL image, resize and crop it
 def get_pil_transform():
-    transf = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.CenterCrop(224)
-    ])
+    val_trans = transforms.Compose([transforms.Resize(330),
+                                    transforms.CenterCrop(300)])
 
-    return transf
+    return val_trans
 
 
 # take resized, cropped image and apply whitening.
@@ -85,6 +83,23 @@ def batch_predict(images):
     return probs.detach().cpu().numpy()
 
 
+def get_model(model_path):
+    model = models.vgg16(pretrained=True)
+    classifier = nn.Sequential(
+        nn.Linear(512 * 7 * 7, 4096),
+        nn.ReLU(True),
+        nn.Dropout(),
+        nn.Linear(4096, 4096),
+        nn.ReLU(True),
+        nn.Dropout(),
+        nn.Linear(4096, 20),
+    )
+    model.classifier = classifier
+    model.load_state_dict(torch.load(model_path))
+    device = torch.device("cpu")
+    model.to(device)
+    return model
+
 # main function
 
 img = get_image('/home/khtt/code/LCFCN/datasets/download/pascal/VOCdevkit/VOC2007/JPEGImages/006223.jpg')
@@ -93,13 +108,12 @@ plt.title('origin image')
 plt.imshow(img)
 
 # Load the pretrained model for Resnet50 available in Pytorch.
-model = models.vgg16(pretrained=True)
+model = get_model('/home/khtt/code/network_explainment/vector/img/vgg16/model-1.pth')
 # Load label texts for ImageNet predictions
-idx2label, cls2label, cls2idx = [], {}, {}
-with open(os.path.abspath('./imagenet_class_index.json'), 'r') as read_file:
+idx2label, cls2idx = [], {},
+with open(os.path.abspath('./pascal_voc.json'), 'r') as read_file:
     class_idx = json.load(read_file)
-    idx2label = [class_idx[str(k)][1] for k in range(len(class_idx))]
-    cls2label = {class_idx[str(k)][0]: class_idx[str(k)][1] for k in range(len(class_idx))}
+    idx2label = [class_idx[str(k)][0] for k in range(len(class_idx))]
     cls2idx = {class_idx[str(k)][0]: k for k in range(len(class_idx))}
 # Get the predicition for our image.
 img_t = get_input_tensors(img)

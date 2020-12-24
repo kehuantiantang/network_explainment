@@ -1,4 +1,6 @@
 # coding=utf-8
+from copy import deepcopy
+
 from sklearn import datasets
 from torch.utils.data import Dataset
 from torchvision.datasets import voc
@@ -59,12 +61,13 @@ class IMDB_PKL(IMDB):
 
 class IMDB_Raw(IMDB):
     def __init__(self, vocab_search_path, embedding_dict, txt_path = '/home/khtt/dataset/na_experiment/aclImdb/%s',
-                 is_train = True):
+                 is_train = True, return_raw_text = False):
 
         self.txt_path = txt_path
         self.is_train = is_train
         self.vocab_search_path = vocab_search_path
         self.embedding_dict = embedding_dict
+        self.return_raw_text = return_raw_text
         print("Make dataset %s"%self.txt_path)
         super(IMDB_Raw, self).__init__()
 
@@ -76,13 +79,19 @@ class IMDB_Raw(IMDB):
             print("Load vocabulary file from %s" %self.vocab_search_path)
         mr = MakeReview(vocab_path = './train_vocab.txt', txt_path =
         self.txt_path, is_train = self.is_train)
-        docs = mr.get_docs()
+        self.docs = mr.get_docs()
         self.vocab_length = mr.vocab_length
 
-        t2v = Text2Vector('./train_vocab.txt', docs, save_path=None, embedding_dict = self.embedding_dict)
+        t2v = Text2Vector('./train_vocab.txt', self.docs, save_path=None, embedding_dict = self.embedding_dict)
         context = t2v.word2vector()
         return context
 
+    def __getitem__(self, index):
+        x, y = super().__getitem__(index)
+        if self.return_raw_text:
+            return x, y,
+        else:
+            return x, y, self.docs[index]
 
 
 class IMDB_Seq(IMDB_Raw):
@@ -101,13 +110,14 @@ class IMDB_Seq(IMDB_Raw):
                 print("Load vocabulary file from %s" %self.vocab_search_path)
             mr = MakeReview(vocab_path = './train_vocab.txt', txt_path =
             self.txt_path, is_train = self.is_train)
-            docs = mr.get_docs()
+            self.docs = mr.get_docs()
             self.vocab_length = mr.vocab_length
 
-            t2v = Text2Vector('./train_vocab.txt', docs, save_path=None, embedding_dict = self.embedding_dict, vector_size = 300)
+            t2v = Text2Vector('./train_vocab.txt', self.docs, save_path=None, embedding_dict = self.embedding_dict,
+                               vector_size = 300)
             context, length = t2v.word2vector_seq()
 
-            for name, p in zip(['context', 'length', 'docs'], [context, length, docs]):
+            for name, p in zip(['context', 'length', 'docs'], [context, length, self.docs]):
                 save_pkl(self.vector_save_path.replace('.pkl', '_%s.pkl'%name), {name:p})
 
         else:
@@ -115,7 +125,7 @@ class IMDB_Seq(IMDB_Raw):
             for name in ['context', 'length', 'docs']:
                 data[name] = load_pkl(self.vector_save_path.replace('.pkl', '_%s.pkl'%name))[name]
 
-            context, length, docs = data['context'], data['length'], data['docs']
+            context, length, self.docs = data['context'], data['length'], data['docs']
 
         print("Max, Mean, Median length %s, %s, %s"%(np.max(length), np.mean(length), np.median(length)))
         return context
@@ -124,13 +134,18 @@ class IMDB_Seq(IMDB_Raw):
         x = np.array(self.context[index])
         # padding or clip if not so long, 300 is Glove embdding vector size
         r = np.zeros((self.max_seq_length, self.embedding_dim), dtype=np.float32)
+
         if len(x) > self.max_seq_length:
             r = x[:self.max_seq_length, :self.embedding_dim]
+            # doc = ' '.join(self.docs[index].split()[:self.max_seq_length])
         else:
             r[:len(x)] = x[:, :self.embedding_dim]
+            # doc = deepcopy(self.docs[index])
 
         y = self.y[index]
 
+        if self.return_raw_text:
+            return r, y, self.docs[index]
         return r, y
 
 

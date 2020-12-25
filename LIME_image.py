@@ -102,13 +102,13 @@ def get_model(model_path):
 
 # main function
 
-img = get_image('/home/khtt/code/LCFCN/datasets/download/pascal/VOCdevkit/VOC2007/JPEGImages/006223.jpg')
+img = get_image('/home/your_dir/code/LCFCN/datasets/download/pascal/VOCdevkit/VOC2007/JPEGImages/006223.jpg')
 plt.subplot(2, 2, 1)
 plt.title('origin image')
 plt.imshow(img)
 
 # Load the pretrained model for Resnet50 available in Pytorch.
-model = get_model('/home/khtt/code/network_explainment/vector/img/vgg16/model-1.pth')
+model = get_model('/home/your_dir/code/network_explainment/vector/img/vgg16/model-1.pth')
 # Load label texts for ImageNet predictions
 idx2label, cls2idx = [], {},
 with open(os.path.abspath('./pascal_voc.json'), 'r') as read_file:

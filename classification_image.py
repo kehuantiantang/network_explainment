@@ -386,6 +386,6 @@ def main(data_dir, model_name, num, lr, epochs, batch_size = 16, download_data =
 
 
 if __name__ == '__main__':
-   main('/home/khtt/dataset/na_experiment', "vgg16", num=1, lr = [1.5e-4, 5e-2], epochs = 50, batch_size=16,
+   main('/home/your_dir/dataset/na_experiment', "vgg16", num=1, lr = [1.5e-4, 5e-2], epochs = 50, batch_size=16,
         download_data=False,
         save_results=True)

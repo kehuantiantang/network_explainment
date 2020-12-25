@@ -318,9 +318,9 @@ if __name__ == '__main__':
     from keras.preprocessing.text import Tokenizer
     # train
 
-    v = Vocab(path = '/home/khtt/dataset/na_experiment/aclImdb', is_test = False)
+    v = Vocab(path = '/home/your_dir/dataset/na_experiment/aclImdb', is_test = False)
     mr = MakeReview(vocab_path = './train_vocab.txt', txt_path =
-    '/home/khtt/dataset/na_experiment/aclImdb/train', is_train = True)
+    '/home/your_dir/dataset/na_experiment/aclImdb/train', is_train = True)
     docs = mr.get_docs()
     #
     print('Get docs')
@@ -329,7 +329,7 @@ if __name__ == '__main__':
 
 
     # test
-    mr = MakeReview(vocab_path = './train_vocab.txt', txt_path = '/home/khtt/dataset/na_experiment/aclImdb/train',
+    mr = MakeReview(vocab_path = './train_vocab.txt', txt_path = '/home/your_dir/dataset/na_experiment/aclImdb/train',
     is_train  = False)
     docs = mr.get_docs()
     print('Get docs')
@@ -347,7 +347,7 @@ if __name__ == '__main__':
     #
     #
     # mr = MakeReview(vocab_path = './train_vocab.txt', txt_path =
-    # '/home/khtt/dataset/na_experiment/aclImdb/test', is_train = False)
+    # '/home/your_dir/dataset/na_experiment/aclImdb/test', is_train = False)
     # docs = mr.get_docs()
     # Xtrain = tokenizer.texts_to_matrix(docs, mode='freq')
     # print(Xtrain.shape)

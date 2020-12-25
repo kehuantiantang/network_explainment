@@ -247,11 +247,11 @@ if __name__ == '__main__':
     parser.add_argument('--use_cuda', default=True, type = bool)
     parser.add_argument('--target_index', default=None, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
-    parser.add_argument('--model_path', default='/home/khtt/code/network_explainment/vector/best_seq.pt', type=str)
+    parser.add_argument('--model_path', default='/home/your_dir/code/network_explainment/vector/best_seq.pt', type=str)
 
-    parser.add_argument('--root-path', default='/home/khtt/code/network_explainment/train_vocab.txt', type=str)
-    parser.add_argument('--train-path', default='/home/khtt/dataset/na_experiment/aclImdb/train', type=str)
-    parser.add_argument('--test-path', default='/home/khtt/dataset/na_experiment/aclImdb/test', type=str)
+    parser.add_argument('--root-path', default='/home/your_dir/code/network_explainment/train_vocab.txt', type=str)
+    parser.add_argument('--train-path', default='/home/your_dir/dataset/na_experiment/aclImdb/train', type=str)
+    parser.add_argument('--test-path', default='/home/your_dir/dataset/na_experiment/aclImdb/test', type=str)
 
     parser.add_argument('--max-seq-length', default=120, type=int, help = 'vocabulary or sequence length')
     parser.add_argument('--embedding-dim', default=300, type=int, help = 'word2vector vector size')

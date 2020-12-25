@@ -254,10 +254,10 @@ def get_model(model_path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CAM')
-    parser.add_argument('--image_path', default='/home/khtt/code/LCFCN/datasets/download/pascal/VOCdevkit/VOC2007/JPEGImages/006223.jpg', type=str)
+    parser.add_argument('--image_path', default='/home/your_dir/code/LCFCN/datasets/download/pascal/VOCdevkit/VOC2007/JPEGImages/006223.jpg', type=str)
     parser.add_argument('--use_cuda', default=True, type = bool)
     parser.add_argument('--target_index', default=None, type=int)
-    parser.add_argument('--model_path', default='/home/khtt/code/network_explainment/vector/img/vgg16/model-1.pth', type=str)
+    parser.add_argument('--model_path', default='/home/your_dir/code/network_explainment/vector/img/vgg16/model-1.pth', type=str)
 
     args = parser.parse_args()
     pp = pprint.PrettyPrinter(indent=4)

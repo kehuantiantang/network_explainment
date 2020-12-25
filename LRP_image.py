@@ -114,7 +114,7 @@ def img_lrp(img_path, model_path, target_index, nb_classes = 20):
     heatmap(np.array(R[0][0]).sum(axis=0),3.5,3.5)
 
 if __name__ == '__main__':
-    img_lrp('/home/khtt/code/LCFCN/datasets/download/pascal/VOCdevkit/VOC2007/JPEGImages/006223.jpg',
-            '/home/khtt/code/network_explainment/vector/img/vgg16/model-1.pth', 6)
+    img_lrp('/home/your_dir/code/LCFCN/datasets/download/pascal/VOCdevkit/VOC2007/JPEGImages/006223.jpg',
+            '/home/your_dir/code/network_explainment/vector/img/vgg16/model-1.pth', 6)
 
 

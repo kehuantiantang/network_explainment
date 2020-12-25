@@ -10,7 +10,7 @@ from utils.text_utils import load_pkl, Vocab, MakeReview, Text2Vector, save_pkl
 import numpy as np
 import os
 
-def glove_vector(path = "/home/khtt/dataset/na_experiment/glove.42B.300d.txt"):
+def glove_vector(path = "/home/your_dir/dataset/na_experiment/glove.42B.300d.txt"):
     embedding_dict = {}
     with open(path, 'r', encoding="utf-8") as f:
         for line in tqdm(f, desc = "Glove vector:", total=1917494):
@@ -60,7 +60,7 @@ class IMDB_PKL(IMDB):
         return context
 
 class IMDB_Raw(IMDB):
-    def __init__(self, vocab_search_path, embedding_dict, txt_path = '/home/khtt/dataset/na_experiment/aclImdb/%s',
+    def __init__(self, vocab_search_path, embedding_dict, txt_path = '/home/your_dir/dataset/na_experiment/aclImdb/%s',
                  is_train = True, return_raw_text = False):
 
         self.txt_path = txt_path
@@ -198,7 +198,7 @@ class PascalVOC_Dataset(voc.VOCDetection):
 
 if __name__ == '__main__':
     embedding_dict = glove_vector()
-    a = IMDB_Seq(vocab_search_path= '/home/khtt/code/network_explainment/train_vocab.txt', txt_path= '/home/khtt/dataset/na_experiment/aclImdb/train',
+    a = IMDB_Seq(vocab_search_path= '/home/your_dir/code/network_explainment/train_vocab.txt', txt_path= '/home/your_dir/dataset/na_experiment/aclImdb/train',
              is_train=True, embedding_dict = embedding_dict, max_seq_length = 100, embedding_size = 100)
 
     for x, y in a:

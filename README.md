@@ -56,5 +56,6 @@ The script will automatically download the Pascal VOC2009 image and train the ne
 - https://github.com/moboehle/Pytorch-LRP
 - https://github.com/nielsrolf/pytorch-lrp
 - https://marcotcr.github.io/lime/tutorials/Lime%20-%20basic%20usage%2C%20two%20class%20case.html
+- https://github.com/zhoubolei/CAM
 
 
